@@ -11,35 +11,36 @@ import { scrollAfterClickLoadMore } from "./js/render-functions.js";
 const form = document.querySelector(".form");
 const btnLoadMore = document.querySelector(".btn-load-more");
 const input = document.querySelector('.form-input');
-let page; 
-form.addEventListener('submit', (event) => {
+
+let page = 1;
+let totalHits;
+
+form.addEventListener('submit', async (event) => {
     event.preventDefault();
     clearGallery();
     const formData = new FormData(form);
     const query = formData.get('search-text').trim();
-    page = 1;
     if (query) {
         showLoader();
-        getImagesByQuery(query,page)
-        .then(response => {           
-            const datas = response.hits;         
-            if (datas.length > 0) { 
+        try {
+            const response = await getImagesByQuery(query, page);
+            totalHits = response.data.totalHits;
+            if (response.data.hits.length > 0) {
                 let arrImages = [];
-                for (const data of datas) {
+                for (const data of response.data.hits) {
                     const image = {
                         webformatURL: data.webformatURL,
-                        largeImageURL:  data.largeImageURL, 
+                        largeImageURL: data.largeImageURL,
                         tags: data.tags,
                         likes: data.likes,
                         views: data.views,
-                        comments: data.comments,           
+                        comments: data.comments,
                         downloads: data.downloads,
                     }
                     arrImages.push(image);
                 }
                 createGallery(arrImages);
                 showLoadMoreButton();
-                
             } else {
                 hideLoadMoreButton();
                 iziToast.error({
@@ -50,8 +51,7 @@ form.addEventListener('submit', (event) => {
                     transitionIn: 'fadeInDown'
                 });
             }
-        })
-        .catch(error => {
+        } catch (error) {
             iziToast.error({
                 id: 'error',
                 title: 'Error',
@@ -59,10 +59,8 @@ form.addEventListener('submit', (event) => {
                 position: 'topRight',
                 transitionIn: 'fadeInDown'
             });
-        })
-        .finally(() => {
-            hideLoader();
-        });
+        }
+        hideLoader();
     } else {
         iziToast.error({
             id: 'error',
@@ -72,54 +70,48 @@ form.addEventListener('submit', (event) => {
             transitionIn: 'fadeInDown'
         });
     }
-})
-btnLoadMore.addEventListener('click', (event) => {    
+});
+
+btnLoadMore.addEventListener('click', async (event) => {
     const query = input.value;
-    page += 1;
     showLoader();
-    getImagesByQuery(query, page)
-        .then(response => {
-            const datas = response.hits;
-            const maxPage = Math.ceil(response.totalHits / 15);
-            if (page < maxPage) { 
-                let arrImages = [];
-                for (const data of datas) {
-                    const image = {
-                        webformatURL: data.webformatURL,
-                        largeImageURL:  data.largeImageURL, 
-                        tags: data.tags,
-                        likes: data.likes,
-                        views: data.views,
-                        comments: data.comments,           
-                        downloads: data.downloads,
-                    }
-                    arrImages.push(image);
-                }
-                createGallery(arrImages);
-                scrollAfterClickLoadMore();
-                showLoadMoreButton();
-                
-            } else {
-                hideLoadMoreButton();
-                iziToast.error({
-                    id: 'error',
-                    title: 'Error',
-                    message: "We're sorry, but you've reached the end of search results.",
-                    position: 'topRight',
-                    transitionIn: 'fadeInDown'
-                });
+    try {
+        const response = await getImagesByQuery(query, ++page);
+        totalHits = response.data.totalHits;
+        const datas = response.data.hits;
+        let arrImages = [];
+        for (const data of datas) {
+            const image = {
+                webformatURL: data.webformatURL,
+                largeImageURL: data.largeImageURL,
+                tags: data.tags,
+                likes: data.likes,
+                views: data.views,
+                comments: data.comments,
+                downloads: data.downloads,
             }
-        })
-        .catch(error => {
-            iziToast.error({
-                id: 'error',
-                title: 'Error',
-                message: error,
-                position: 'topRight',
-                transitionIn: 'fadeInDown'
-            });
-        })
-        .finally(() => {
-            hideLoader();
+            arrImages.push(image);
+        }
+        createGallery(arrImages);
+        scrollAfterClickLoadMore();
+    } catch (error) {
+        iziToast.error({
+            id: 'error',
+            title: 'Error',
+            message: error,
+            position: 'topRight',
+            transitionIn: 'fadeInDown'
         });
-})
+    }
+    hideLoader();
+    const maxPage = Math.ceil(totalHits / 15);
+    if (page < maxPage) {
+        showLoadMoreButton();
+    } else {
+        hideLoadMoreButton();
+        iziToast.info({
+            message: "We're sorry, but you've reached the end of search results.",
+            position: 'topRight',
+        });
+    }
+});
