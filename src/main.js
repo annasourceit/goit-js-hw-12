@@ -18,15 +18,20 @@ let query;
 async function renderView(query, page) {
     hideLoadMoreButton();
     showLoader();
+    let response;
 
-    const response = await getImagesByQuery(query, page);
-    
-    if (response.hits.length > 0) {
-        createGallery(response.hits);
+    try {
+        response = await getImagesByQuery(query, page);
+        
+        if (response.hits.length > 0) {
+            createGallery(response.hits);
+            hideLoader();
+        } else {
+            throw new Error('Sorry, there are no images matching your search query. Please try again!')
+        }
+    } catch (error) {
         hideLoader();
-    } else {
-        hideLoader();
-        throw new Error('Sorry, there are no images matching your search query. Please try again!')
+        throw new Error(error.message)
     }
 
     const maxPage = Math.ceil(response.totalHits / 15);
