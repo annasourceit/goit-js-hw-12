@@ -1,7 +1,12 @@
 import iziToast from "izitoast";
-import { renderView } from "./js/render-functions.js";
-import { clearGallery } from "./js/render-functions.js";
-import { scrollAfterClickLoadMore } from "./js/render-functions.js";
+import { clearGallery, createGallery } from "./js/render-functions.js";
+import {
+    hideLoader,
+    showLoader,
+    showLoadMoreButton,
+    hideLoadMoreButton
+} from "./js/render-functions.js";
+import { getImagesByQuery } from "./js/pixabay-api.js";
  
 const form = document.querySelector(".form");
 const btnLoadMore = document.querySelector(".btn-load-more");
@@ -9,6 +14,28 @@ const input = document.querySelector('.form-input');
 
 let page;
 let query;
+
+async function renderView(query, page) {
+    hideLoadMoreButton();
+    showLoader();
+
+    const response = await getImagesByQuery(query, page);
+    
+    if (response.hits.length > 0) {
+        createGallery(response.hits);
+        hideLoader();
+    } else {
+        hideLoader();
+        throw new Error('Sorry, there are no images matching your search query. Please try again!')
+    }
+
+    const maxPage = Math.ceil(response.totalHits / 15);
+    if (page < maxPage) {
+        showLoadMoreButton();
+    } else {
+        throw new RangeError("We're sorry, but you've reached the end of search results.")
+    }
+}
 
 function showError(error) {
     if (error instanceof RangeError) {
@@ -27,6 +54,18 @@ function showError(error) {
     }
 }
 
+
+function scrollAfterClickLoadMore() {
+    const item = document.querySelector(".gallery-item");
+    if (item) {
+        const itemHight = item.getBoundingClientRect().height;
+        scrollBy({
+        top: itemHight * 2,
+        behavior: 'smooth',
+        });
+    }
+}
+
 form.addEventListener('submit', async (event) => {
     page = 1;
     event.preventDefault();
@@ -41,7 +80,6 @@ form.addEventListener('submit', async (event) => {
     } catch (error) {
         showError(error);
     }
-
 });
 
 btnLoadMore.addEventListener('click', async (event) => {
